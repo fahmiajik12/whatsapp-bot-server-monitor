@@ -1,0 +1,6 @@
+{
+  "port": ":8080",
+  "apiKey": "CHANGE-ME-your-secret-api-key",
+  "allowedServices": [],
+  "logTailLines": 50
+}

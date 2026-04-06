@@ -1,0 +1,30 @@
+{
+  "backendUrl": "http://localhost:8080",
+  "apiKey": "CHANGE-ME-your-secret-api-key",
+  "prefix": "/",
+  "adminNumbers": {
+    "628xxxxxxxxxx": "superadmin",
+    "628xxxxxxxxxx": "admin"
+  },
+  "alertGroupId": null,
+  "alertGroupName": "Server Monitor",
+  "alert": {
+    "enabled": true,
+    "intervalSeconds": 60,
+    "cooldownSeconds": 300,
+    "thresholds": {
+      "cpu": 80,
+      "disk": 90
+    }
+  },
+  "modules": {
+    "monitoring": true,
+    "service": true,
+    "apache": true,
+    "process": true,
+    "logs": true,
+    "auth": true,
+    "alert": true,
+    "tools": true
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+bot/auth_info/
+bot/auth_store.json
+bot/logs/
+logs/
+bot/config.json
+backend/config.json
+backend/wabot-backend
+backend/go.sum
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

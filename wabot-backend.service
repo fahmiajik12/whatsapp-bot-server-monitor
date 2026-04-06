@@ -1,0 +1,17 @@
+[Unit]
+Description=Wabot Backend - Server Monitor API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/wabot/backend
+ExecStart=/opt/wabot/backend/wabot-backend
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wabot-backend
+
+[Install]
+WantedBy=multi-user.target

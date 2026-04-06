@@ -1,0 +1,19 @@
+{
+  "name": "wabot",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot untuk Monitoring & Kontrol Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "axios": "^1.7.2",
+    "pino": "^9.1.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
