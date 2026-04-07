@@ -383,7 +383,7 @@ Navigasi menu:
 | `/cache` | admin | Statistik cache Redis (hit/miss, memory) |
 | `/cache clear` | admin | Hapus semua cache AI |
 
-> **Tanpa command:** Cukup kirim pesan biasa, AI akan otomatis menjawab.
+> **Tanpa command:** Auto-reply AI hanya aktif pada chat yang diproses router bot. Pada konfigurasi saat ini, ini biasanya berarti pesan biasa di **grup alert** yang sesuai `alertGroupId`, bukan otomatis di semua chat pribadi.
 
 ### Lainnya
 
