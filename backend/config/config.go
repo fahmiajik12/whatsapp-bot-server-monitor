@@ -14,10 +14,31 @@ import (
 )
 
 type Config struct {
-	Port            string   `json:"port"`
-	APIKey          string   `json:"apiKey"`
-	AllowedServices []string `json:"allowedServices"`
-	LogTailLines    int      `json:"logTailLines"`
+	Port            string           `json:"port"`
+	APIKey          string           `json:"apiKey"`
+	AllowedServices []string         `json:"allowedServices"`
+	LogTailLines    int              `json:"logTailLines"`
+	Monitoring      MonitoringConfig `json:"monitoring"`
+	Automation      AutomationConfig `json:"automation"`
+	Security        SecurityConfig   `json:"security"`
+}
+
+type MonitoringConfig struct {
+	BaselineWindow          int     `json:"baselineWindow"`
+	BaselineSamplingSeconds int     `json:"baselineSamplingSeconds"`
+	SpikeMultiplier         float64 `json:"spikeMultiplier"`
+	TrendPredictionDays     int     `json:"trendPredictionDays"`
+}
+
+type AutomationConfig struct {
+	Enabled                   bool `json:"enabled"`
+	EvaluationIntervalSeconds int  `json:"evaluationIntervalSeconds"`
+	MaxActionsPerHour         int  `json:"maxActionsPerHour"`
+}
+
+type SecurityConfig struct {
+	RateLimitPerMinute int  `json:"rateLimitPerMinute"`
+	AuditEnabled       bool `json:"auditEnabled"`
 }
 
 var AppConfig *Config
@@ -55,6 +76,30 @@ func Load(path string) error {
 		log.Printf("[INFO] Auto-detect %d services dari sistem", len(AppConfig.AllowedServices))
 	}
 
+	if AppConfig.Monitoring.BaselineWindow == 0 {
+		AppConfig.Monitoring.BaselineWindow = 60
+	}
+	if AppConfig.Monitoring.BaselineSamplingSeconds == 0 {
+		AppConfig.Monitoring.BaselineSamplingSeconds = 60
+	}
+	if AppConfig.Monitoring.SpikeMultiplier == 0 {
+		AppConfig.Monitoring.SpikeMultiplier = 1.5
+	}
+	if AppConfig.Monitoring.TrendPredictionDays == 0 {
+		AppConfig.Monitoring.TrendPredictionDays = 7
+	}
+
+	if AppConfig.Automation.EvaluationIntervalSeconds == 0 {
+		AppConfig.Automation.EvaluationIntervalSeconds = 30
+	}
+	if AppConfig.Automation.MaxActionsPerHour == 0 {
+		AppConfig.Automation.MaxActionsPerHour = 10
+	}
+
+	if AppConfig.Security.RateLimitPerMinute == 0 {
+		AppConfig.Security.RateLimitPerMinute = 60
+	}
+
 	return nil
 }
 
@@ -87,27 +132,27 @@ func detectRunningServices() []string {
 
 	var services []string
 	skip := map[string]bool{
-		"dbus.service":                  true,
-		"getty@tty1.service":            true,
-		"systemd-journald.service":      true,
-		"systemd-logind.service":        true,
-		"systemd-networkd.service":      true,
-		"systemd-resolved.service":      true,
-		"systemd-timesyncd.service":     true,
-		"systemd-udevd.service":         true,
-		"polkit.service":                true,
-		"irqbalance.service":            true,
-		"multipathd.service":            true,
-		"networkd-dispatcher.service":   true,
-		"unattended-upgrades.service":   true,
-		"packagekit.service":            true,
-		"udisks2.service":               true,
-		"upower.service":                true,
-		"ModemManager.service":          true,
-		"smartmontools.service":         true,
-		"snapd.service":                 true,
-		"rsyslog.service":               true,
-		"cron.service":                  true,
+		"dbus.service":                true,
+		"getty@tty1.service":          true,
+		"systemd-journald.service":    true,
+		"systemd-logind.service":      true,
+		"systemd-networkd.service":    true,
+		"systemd-resolved.service":    true,
+		"systemd-timesyncd.service":   true,
+		"systemd-udevd.service":       true,
+		"polkit.service":              true,
+		"irqbalance.service":          true,
+		"multipathd.service":          true,
+		"networkd-dispatcher.service": true,
+		"unattended-upgrades.service": true,
+		"packagekit.service":          true,
+		"udisks2.service":             true,
+		"upower.service":              true,
+		"ModemManager.service":        true,
+		"smartmontools.service":       true,
+		"snapd.service":               true,
+		"rsyslog.service":             true,
+		"cron.service":                true,
 	}
 
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {

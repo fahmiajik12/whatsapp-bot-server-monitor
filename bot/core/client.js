@@ -6,9 +6,7 @@ const config = require('../config.json');
 const fs = require('fs');
 const path = require('path');
 
-const logger = pino({
-    level: 'silent',
-});
+const logger = pino({ level: 'silent' });
 
 let sock = null;
 let isConnected = false;
@@ -26,7 +24,7 @@ async function startClient() {
         auth: state,
         logger,
         printQRInTerminal: false,
-        browser: ['Wabot Server Monitor', 'Chrome', '1.0.0'],
+        browser: ['Wabot DevOps Assistant', 'Chrome', '2.0.0'],
         connectTimeoutMs: 60000,
         retryRequestDelayMs: 2000,
         getMessage: async () => {
@@ -80,11 +78,7 @@ async function startClient() {
             if (msg.key.fromMe) continue;
             if (!msg.message) continue;
 
-            const text =
-                msg.message?.conversation ||
-                msg.message?.extendedTextMessage?.text ||
-                '';
-
+            const text = extractMessageText(msg);
             if (!text) continue;
 
             try {
@@ -98,6 +92,24 @@ async function startClient() {
     return sock;
 }
 
+function extractMessageText(msg) {
+    if (msg.message?.conversation) return msg.message.conversation;
+    if (msg.message?.extendedTextMessage?.text) return msg.message.extendedTextMessage.text;
+    if (msg.message?.buttonsResponseMessage?.selectedButtonId) return msg.message.buttonsResponseMessage.selectedButtonId;
+    if (msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId) return msg.message.listResponseMessage.singleSelectReply.selectedRowId;
+    if (msg.message?.templateButtonReplyMessage?.selectedId) return msg.message.templateButtonReplyMessage.selectedId;
+    if (msg.message?.interactiveResponseMessage) {
+        try {
+            const body = msg.message.interactiveResponseMessage.nativeFlowResponseMessage;
+            if (body?.paramsJson) {
+                const params = JSON.parse(body.paramsJson);
+                return params.id || '';
+            }
+        } catch (e) {}
+    }
+    return '';
+}
+
 async function setupAlertGroup() {
     const configPath = path.join(__dirname, '..', 'config.json');
     const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -107,9 +119,7 @@ async function setupAlertGroup() {
         return;
     }
 
-    if (!currentConfig.alert?.enabled) {
-        return;
-    }
+    if (!currentConfig.alert?.enabled) return;
 
     try {
         console.log('[INFO] Membuat grup alert...');
@@ -127,18 +137,21 @@ async function setupAlertGroup() {
         fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 2));
 
         console.log(`[OK] Grup alert dibuat: ${group.id}`);
-
         await new Promise(r => setTimeout(r, 3000));
 
+        const thresholds = currentConfig.alert?.thresholds || {};
         await sock.sendMessage(group.id, {
             text:
-                '*Server Monitor Bot Aktif!*\n\n' +
+                '🖥️ *DevOps Assistant Aktif!*\n\n' +
                 'Bot ini akan mengirim alert otomatis ke grup ini.\n\n' +
-                'Threshold:\n' +
-                `- CPU > ${currentConfig.alert.thresholds.cpu}%\n` +
-                `- Disk > ${currentConfig.alert.thresholds.disk}%\n` +
+                '📊 *Threshold:*\n' +
+                `- CPU > ${thresholds.cpu || 80}%\n` +
+                `- RAM > ${thresholds.ram || 90}%\n` +
+                `- Disk > ${thresholds.disk || 90}%\n` +
                 '- Apache down\n\n' +
-                `Interval cek: ${currentConfig.alert.intervalSeconds} detik`,
+                `⏱️ Interval: ${currentConfig.alert.intervalSeconds}s\n` +
+                '🤖 Smart Analysis: aktif\n\n' +
+                'Ketik */menu* untuk menu interaktif',
         });
     } catch (err) {
         console.error('[ERR] Gagal membuat grup alert:', err.message);

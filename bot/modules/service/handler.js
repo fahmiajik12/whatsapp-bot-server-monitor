@@ -1,89 +1,97 @@
-const axios = require('axios');
-const config = require('../../config.json');
-
-const api = axios.create({
-    baseURL: config.backendUrl,
-    headers: { 'X-API-Key': config.apiKey },
-    timeout: 15000,
-});
+const { getAPIClient } = require('../../core/api-client');
 
 async function handleService(ctx) {
     const { sock, jid, args } = ctx;
-    const name = args[0];
+    const api = getAPIClient();
+    const { target, server } = api.parseServerFromArgs(args);
+    const serverName = server || ctx.selectedServer;
+    const name = target;
 
     if (!name) {
         await sock.sendMessage(jid, {
-            text: '[i] *Penggunaan:* /service <nama>\n\nContoh: /service apache2',
+            text: '📝 *Penggunaan:* /service <nama>\n\nContoh: /service apache2',
         });
         return;
     }
 
     try {
-        const { data } = await api.get(`/api/service/${name}`);
+        const { data } = await api.get(serverName, `/api/service/${name}`);
 
         if (!data.success) {
-            await sock.sendMessage(jid, { text: `[!] Error: ${data.error}` });
+            await sock.sendMessage(jid, { text: `❌ Error: ${data.error}` });
             return;
         }
 
         const s = data.data;
         const isRunning = s.active?.includes('running');
-        const icon = isRunning ? '[+]' : '[-]';
+        const icon = isRunning ? '🟢' : '🔴';
+        const srvLabel = serverName ? ` (${serverName})` : '';
 
-        await sock.sendMessage(jid, {
-            text:
-                `${icon} *Service: ${s.name}*\n\n` +
-                `- Status: ${s.active}\n` +
-                `- Loaded: ${s.loadState || '-'}`,
-        });
+        let text = `${icon} *Service: ${s.name}*${srvLabel}\n`;
+        text += '━━━━━━━━━━━━━━━━━━\n\n';
+        text += `📊 Status: ${s.active}\n`;
+        text += `📦 Loaded: ${s.loadState || '-'}\n`;
+        text += `🔄 SubState: ${s.subState || '-'}\n`;
+
+        if (!isRunning) {
+            text += '\n💡 *Aksi:*\n';
+            text += `  /start ${name} — Nyalakan service\n`;
+            text += `  /restart ${name} — Restart service`;
+        }
+
+        await sock.sendMessage(jid, { text });
     } catch (err) {
         await sock.sendMessage(jid, {
-            text: `[!] Gagal: ${err.response?.data?.error || err.message}`,
+            text: `❌ Gagal: ${err.response?.data?.error || err.message}`,
         });
     }
 }
 
 async function handleStart(ctx) {
-    await serviceAction(ctx, 'start', '[>]');
+    await serviceAction(ctx, 'start', '▶️');
 }
 
 async function handleStop(ctx) {
-    await serviceAction(ctx, 'stop', '[x]');
+    await serviceAction(ctx, 'stop', '⏹️');
 }
 
 async function handleRestart(ctx) {
-    await serviceAction(ctx, 'restart', '[~]');
+    await serviceAction(ctx, 'restart', '🔄');
 }
 
 async function serviceAction(ctx, action, icon) {
     const { sock, jid, args } = ctx;
-    const name = args[0];
+    const api = getAPIClient();
+    const { target, server } = api.parseServerFromArgs(args);
+    const serverName = server || ctx.selectedServer;
+    const name = target;
 
     if (!name) {
         await sock.sendMessage(jid, {
-            text: `[i] *Penggunaan:* /${action} <nama>\n\nContoh: /${action} apache2`,
+            text: `📝 *Penggunaan:* /${action} <nama>\n\nContoh: /${action} apache2`,
         });
         return;
     }
 
     try {
+        const srvLabel = serverName ? ` (${serverName})` : '';
         await sock.sendMessage(jid, {
-            text: `${icon} *${action.toUpperCase()}* service: ${name}...`,
+            text: `${icon} *${action.toUpperCase()}* service: ${name}${srvLabel}...`,
         });
 
-        const { data } = await api.post(`/api/service/${name}/${action}`);
+        const { data } = await api.post(serverName, `/api/service/${name}/${action}`);
 
         if (!data.success) {
-            await sock.sendMessage(jid, { text: `[!] Gagal: ${data.error}` });
+            await sock.sendMessage(jid, { text: `❌ Gagal: ${data.error}` });
             return;
         }
 
         await sock.sendMessage(jid, {
-            text: `[+] *${name}* berhasil di-${action}`,
+            text: `✅ *${name}* berhasil di-${action}${srvLabel}`,
         });
     } catch (err) {
         await sock.sendMessage(jid, {
-            text: `[!] Gagal ${action} ${name}: ${err.response?.data?.error || err.message}`,
+            text: `❌ Gagal ${action} ${name}: ${err.response?.data?.error || err.message}`,
         });
     }
 }
