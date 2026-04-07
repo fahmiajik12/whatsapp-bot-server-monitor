@@ -1,10 +1,28 @@
 {
   "backendUrl": "http://localhost:8080",
   "apiKey": "CHANGE-ME-your-secret-api-key",
-  "prefix": "/",
+  "ollama": {
+    "host": "localhost",
+    "port": 11434,
+    "model": "qwen2.5:1.5b"
+  },
+  "redis": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "keyPrefix": "wabot:",
+    "ttl": {
+      "aiChat": 600,
+      "aiDevops": 300,
+      "aiIntent": 1800,
+      "monitoring": 30
+    }
+  },
   "adminNumbers": {
-    "628xxxxxxxxxx": "superadmin",
-    "628xxxxxxxxxx": "admin"
+    "6285xxxxxxxxx": "superadmin",
+    "6281xxxxxxxxx": "admin"
   },
   "alertGroupId": null,
   "alertGroupName": "Server Monitor",
@@ -25,6 +43,7 @@
     "logs": true,
     "auth": true,
     "alert": true,
-    "tools": true
+    "tools": true,
+    "ai": true
   }
 }

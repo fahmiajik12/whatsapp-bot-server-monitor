@@ -3,33 +3,68 @@
 [![GitHub](https://img.shields.io/badge/GitHub-whatsapp--bot--server--monitor-blue)](https://github.com/fahmiajik12/whatsapp-bot-server-monitor)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8)](https://go.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933)](https://nodejs.org)
+[![Ollama](https://img.shields.io/badge/AI-Ollama_Local-blueviolet)](https://ollama.com)
+[![Redis](https://img.shields.io/badge/Cache-Redis-DC382D)](https://redis.io)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-**Full DevOps Assistant via WhatsApp** — monitoring, automation, dan manajemen server Linux tanpa web dashboard. Dibangun dengan arsitektur modular menggunakan [Baileys](https://github.com/WhiskeySockets/Baileys) (Node.js) + Go Backend.
+**AI-Driven DevOps Assistant Berbasis WhatsApp Bot** — monitoring, automation, AI assistant, dan manajemen server Linux tanpa web dashboard. AI berjalan **100% lokal** menggunakan [Ollama](https://ollama.com) — tanpa cloud, tanpa limit, tanpa biaya. Dibangun dengan arsitektur modular menggunakan [Baileys](https://github.com/WhiskeySockets/Baileys) (Node.js) + Go Backend.
 
 ## Arsitektur
 
-```
-+------------------+    REST API    +------------------+    System     +------------------+
-|  WhatsApp Bot    | ------------> |  Go Backend      | -----------> |  Linux Server    |
-|  (Baileys)       | <------------ |  (REST API)      | <----------- |                  |
-+--------+---------+               +--------+---------+              +------------------+
-         |                                  |
-         v                                  v
-  +--------------+               +---------------------+
-  |  Menu System |               |  Smart Monitoring   |
-  |  - NLP Parse |               |  - Baseline Engine  |
-  |  - Session   |               |  - Anomaly Detect   |
-  |  - Confirm   |               |  - Trend Analysis   |
-  +--------------+               |  - Auto-Healing     |
-         |                       |  - Audit Logging    |
-         v                       |  - Rate Limiter     |
-  +--------------+               +---------------------+
-  |  Alert Group | <--- Scheduler ------+
-  +--------------+
+```mermaid
+graph TB
+    subgraph WA["WhatsApp Bot (Baileys)"]
+        MENU["Menu System<br/>NLP Parse · Session · Confirm"]
+        AI["AI Engine<br/>Chat · Intent Parse · DevOps AI"]
+        CACHE["Redis Cache<br/>SHA256 Key · TTL · Dedup"]
+        ALERT["Alert Group"]
+    end
+
+    subgraph BE["Go Backend (REST API)"]
+        MON["Smart Monitoring<br/>Baseline · Anomaly · Trends"]
+        AUTO["Auto-Healing"]
+        SEC["Security<br/>Rate Limiter · Audit Log"]
+    end
+
+    subgraph SRV["Linux Server"]
+        SYS["systemd · Docker · PM2"]
+    end
+
+    subgraph LLM["Ollama (Local)"]
+        MODELS["qwen · mistral · gemma<br/>llama · phi · dll"]
+    end
+
+    WA <-->|REST API| BE
+    BE <-->|System Calls| SRV
+    MON -->|Scheduler| ALERT
+    AI <-->|Cache Miss| LLM
+    AI <-->|Check/Store| CACHE
+    MENU --> AI
+
+    style WA fill:#1a1a2e,stroke:#e94560,color:#fff
+    style BE fill:#16213e,stroke:#0f3460,color:#fff
+    style SRV fill:#0f3460,stroke:#533483,color:#fff
+    style LLM fill:#533483,stroke:#e94560,color:#fff
+    style CACHE fill:#DC382D,stroke:#fff,color:#fff
 ```
 
 ## Fitur Utama
+
+### 🧠 AI Assistant (Ollama — 100% Lokal)
+- **Chatbot umum** — Jawab pertanyaan apapun seperti ChatGPT, ngobrol santai, tanya coding, sains, dll
+- **DevOps AI** — Analisis server, diagnosa masalah, rekomendasi solusi berdasarkan data real-time
+- **Intent Parsing** — Paham bahasa natural ("kenapa apache mati" → otomatis ke command yang tepat)
+- **Multi-model** — Support semua model Ollama (Qwen, Mistral, Gemma, Llama, Phi, dll)
+- **Model Manager** — Download, ganti, dan hapus model AI langsung dari WhatsApp (`/aimodel`)
+- **Zero Cost & Zero Limit** — Berjalan 100% lokal, tidak perlu API key cloud, tanpa batas request
+
+### ⚡ Redis Cache Layer
+- **AI Response Cache** — Cache response AI untuk menghindari request berulang ke Ollama
+- **SHA256 Key Generation** — Hash prompt untuk cache key yang konsisten
+- **Request Deduplication** — Jika prompt yang sama sedang diproses, tunggu hasilnya
+- **Configurable TTL** — Chat (10 menit), DevOps (5 menit), Intent (30 menit)
+- **Graceful Fallback** — Jika Redis down, bot tetap berjalan normal tanpa cache
+- **Cache Statistics** — Monitoring hit/miss rate via `/cache` command
 
 ### 🖥️ Interactive Menu System
 - Menu interaktif via WhatsApp (balas dengan angka)
@@ -91,6 +126,11 @@ Edit `bot/config.json`:
 {
   "backendUrl": "http://localhost:1111",
   "apiKey": "your-secret-api-key",
+  "ollama": {
+    "host": "localhost",
+    "port": 11434,
+    "model": "qwen2.5:1.5b"
+  },
   "prefix": "/",
 
   "adminNumbers": {
@@ -143,7 +183,8 @@ Edit `bot/config.json`:
     "tools": true,
     "menu": true,
     "automation": true,
-    "settings": true
+    "settings": true,
+    "ai": true
   },
 
   "plugins": {},
@@ -327,6 +368,23 @@ Navigasi menu:
 | `/alert off` | admin | Nonaktifkan alert |
 | `/alert status` | admin | Status alert |
 
+### 🧠 AI Assistant
+
+| Command | Permission | Deskripsi |
+|---------|------------|-----------|
+| `/chat <pesan>` | user | Ngobrol dengan AI (seperti ChatGPT) |
+| `/analyze <target>` | admin | AI analisis mendalam (cpu/ram/disk) |
+| `/why <issue>` | admin | Tanya AI penyebab masalah |
+| `/fix <issue>` | admin | Tanya AI cara memperbaiki |
+| `/aimodel` | superadmin | Lihat status & daftar model AI |
+| `/aimodel use <nama>` | superadmin | Ganti model AI aktif |
+| `/aimodel pull <nama>` | superadmin | Download model AI baru |
+| `/aimodel rm <nama>` | superadmin | Hapus model AI |
+| `/cache` | admin | Statistik cache Redis (hit/miss, memory) |
+| `/cache clear` | admin | Hapus semua cache AI |
+
+> **Tanpa command:** Auto-reply AI hanya aktif pada chat yang diproses router bot. Pada konfigurasi saat ini, ini biasanya berarti pesan biasa di **grup alert** yang sesuai `alertGroupId`, bukan otomatis di semua chat pribadi.
+
 ### Lainnya
 
 | Command | Permission | Deskripsi |
@@ -404,8 +462,10 @@ whatsapp-bot-server-monitor/
 │   ├── config.json              # Konfigurasi bot
 │   ├── core/
 │   │   ├── client.js            # WhatsApp connection + interactive msg
-│   │   ├── router.js            # 4-layer routing (cmd → confirm → menu → NLP)
+│   │   ├── router.js            # 5-layer routing (cmd → confirm → menu → NLP → AI)
 │   │   ├── dispatcher.js        # Command dispatch + typo suggestion
+│   │   ├── ai-engine.js         # Ollama AI engine (multi-model) + cache layer
+│   │   ├── cache-service.js     # Redis cache service + deduplication
 │   │   ├── menu-engine.js       # Interactive menu system
 │   │   ├── session-manager.js   # Per-user session state
 │   │   ├── api-client.js        # Multi-server API client
@@ -423,6 +483,7 @@ whatsapp-bot-server-monitor/
 │       ├── alert/               # /alert, scheduler
 │       ├── menu/                # /menu, /home, /servers
 │       ├── automation/          # /auto, /auto enable, /auto disable
+│       ├── ai/                  # /chat, /analyze, /why, /fix, /aimodel, /cache
 │       └── settings/            # /settings, /audit
 │
 └── plugins/                     # Plugin directory
@@ -610,6 +671,129 @@ pm2 save
 - **Linux** (Ubuntu/Debian recommended)
 - **systemd**
 - **PM2** (recommended untuk production)
+- **Ollama** (untuk fitur AI)
+- **Redis** (untuk caching AI response)
+
+## Setup AI (Ollama)
+
+### Install Ollama
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Download Model
+
+```bash
+# Model ringan (recommended untuk RAM ≤ 4GB)
+ollama pull qwen2.5:1.5b     # 986 MB — ringan, support Bahasa Indonesia
+
+# Model sedang (RAM 4-8GB)
+ollama pull gemma2:2b          # 1.6 GB
+ollama pull phi3:mini           # 2.3 GB
+ollama pull llama3.2:3b         # 2.0 GB
+
+# Model besar (RAM 8GB+)
+ollama pull mistral             # 4.1 GB — kualitas tinggi
+ollama pull qwen2.5:7b          # 4.7 GB — terbaik untuk DevOps
+ollama pull llama3.1:8b         # 4.7 GB
+```
+
+### Konfigurasi
+
+Set model default di `bot/config.json`:
+```json
+{
+  "ollama": {
+    "host": "localhost",
+    "port": 11434,
+    "model": "qwen2.5:1.5b"
+  }
+}
+```
+
+### Ganti Model via WhatsApp
+
+Tidak perlu edit config atau restart bot:
+```
+/aimodel                  → Lihat model yang terinstall
+/aimodel use mistral      → Ganti ke Mistral
+/aimodel pull gemma2:2b   → Download model baru
+/aimodel rm mistral       → Hapus model
+```
+
+### Kompatibilitas Model
+
+| Model | RAM | Kualitas Chat | Kualitas DevOps | Bahasa Indonesia |
+|-------|-----|--------------|-----------------|------------------|
+| `qwen2.5:0.5b` | ~0.5 GB | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| `qwen2.5:1.5b` | ~1.5 GB | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| `gemma2:2b` | ~2 GB | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| `phi3:mini` | ~2.5 GB | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| `mistral` | ~5 GB | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| `qwen2.5:7b` | ~5 GB | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+
+> **Tips:** Mulai dengan `qwen2.5:1.5b` untuk server dengan RAM terbatas. Upgrade ke model lebih besar jika resource memungkinkan.
+
+## Setup Redis (Cache)
+
+### Install Redis
+
+```bash
+sudo apt install -y redis-server
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+
+# Verifikasi
+redis-cli ping  # Harus return PONG
+```
+
+### Konfigurasi
+
+Set konfigurasi Redis di `bot/config.json`:
+```json
+{
+  "redis": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "keyPrefix": "wabot:",
+    "ttl": {
+      "aiChat": 600,
+      "aiDevops": 300,
+      "aiIntent": 1800,
+      "monitoring": 30
+    }
+  }
+}
+```
+
+### TTL (Time To Live)
+
+| Tipe Cache | Default TTL | Keterangan |
+|------------|-------------|------------|
+| AI Chat | 600s (10 menit) | Cache response percakapan umum |
+| AI DevOps | 300s (5 menit) | Cache analisis server (data berubah cepat) |
+| AI Intent | 1800s (30 menit) | Cache parsing intent (stabil) |
+| Monitoring | 30s | Cache data monitoring real-time |
+
+### Monitoring Cache via WhatsApp
+
+```
+/cache                  → Lihat statistik (hit/miss rate, memory, keys)
+/cache clear            → Hapus semua cache AI
+```
+
+### Fitur Cache
+
+- **Request Deduplication** — Jika 5 user bertanya hal sama secara bersamaan, hanya 1 request ke Ollama
+- **SHA256 Key** — Prompt di-hash untuk cache key yang konsisten
+- **Graceful Fallback** — Jika Redis down, bot tetap berjalan normal (bypass cache)
+- **Auto-reconnect** — Redis otomatis reconnect jika koneksi terputus
+
+> **Catatan:** Set `"enabled": false` di config untuk menonaktifkan caching tanpa uninstall Redis.
 
 ## License
 
