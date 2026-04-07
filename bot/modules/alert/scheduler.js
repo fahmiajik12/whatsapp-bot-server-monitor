@@ -1,6 +1,6 @@
-const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { getAPIClient } = require('../../core/api-client');
 
 let configData = null;
 
@@ -46,9 +46,7 @@ class AlertScheduler {
         console.log('[INFO] Alert scheduler dihentikan');
     }
 
-    isRunning() {
-        return this.running;
-    }
+    isRunning() { return this.running; }
 
     getInterval() {
         const config = loadConfig();
@@ -60,9 +58,7 @@ class AlertScheduler {
         return config.alert?.cooldownSeconds || 300;
     }
 
-    getStats() {
-        return { ...this.stats };
-    }
+    getStats() { return { ...this.stats }; }
 
     async check() {
         const config = loadConfig();
@@ -77,53 +73,49 @@ class AlertScheduler {
 
         this.stats.totalChecks++;
 
-        const api = axios.create({
-            baseURL: config.backendUrl,
-            headers: { 'X-API-Key': config.apiKey },
-            timeout: 10000,
-        });
-
         try {
-            const { data } = await api.get('/api/monitoring/status');
+            const api = getAPIClient();
+            const { data } = await api.get(null, '/api/monitoring/status');
             if (!data.success) return;
 
             const status = data.data;
             const thresholds = config.alert?.thresholds || { cpu: 80, disk: 90 };
+            const smartAnalysis = config.alert?.smartAnalysis !== false;
             const alerts = [];
 
+            let baseline = null;
+            if (smartAnalysis) {
+                try {
+                    const baselineRes = await api.get(null, '/api/monitoring/baseline');
+                    if (baselineRes.data.success) {
+                        baseline = baselineRes.data.data;
+                    }
+                } catch (_) {}
+            }
+
             if (status.cpu > thresholds.cpu) {
-                alerts.push({
-                    type: 'cpu',
-                    message:
-                        `[!] *CPU Usage Tinggi!*\n` +
-                        `- Usage: ${status.cpu.toFixed(1)}%\n` +
-                        `- Threshold: ${thresholds.cpu}%\n` +
-                        `- Waktu: ${new Date().toLocaleString('id-ID')}`,
-                });
+                const alert = this.buildSmartAlert('cpu', status.cpu, thresholds.cpu, baseline);
+                alerts.push(alert);
+            }
+
+            if (thresholds.ram && status.ram.usedPercent > thresholds.ram) {
+                const alert = this.buildSmartAlert('ram', status.ram.usedPercent, thresholds.ram, baseline);
+                alerts.push(alert);
             }
 
             if (status.disk.usedPercent > thresholds.disk) {
-                alerts.push({
-                    type: 'disk',
-                    message:
-                        `[!] *Disk Usage Tinggi!*\n` +
-                        `- Usage: ${status.disk.usedPercent.toFixed(1)}%\n` +
-                        `- Threshold: ${thresholds.disk}%\n` +
-                        `- Waktu: ${new Date().toLocaleString('id-ID')}`,
-                });
+                const alert = this.buildSmartAlert('disk', status.disk.usedPercent, thresholds.disk, baseline);
+                alerts.push(alert);
             }
 
             try {
-                const apacheRes = await api.get('/api/apache/status');
+                const apacheRes = await api.get(null, '/api/apache/status');
                 if (apacheRes.data.success) {
                     const apacheStatus = apacheRes.data.data;
                     if (!apacheStatus.active?.includes('running')) {
                         alerts.push({
                             type: 'apache',
-                            message:
-                                `[!] *Apache DOWN!*\n` +
-                                `- Status: ${apacheStatus.active}\n` +
-                                `- Waktu: ${new Date().toLocaleString('id-ID')}`,
+                            message: this.buildApacheAlert(apacheStatus),
                         });
                     }
                 }
@@ -137,6 +129,111 @@ class AlertScheduler {
         } catch (err) {
             console.error('[ERR] Alert check error:', err.message);
         }
+    }
+
+    buildSmartAlert(type, currentValue, threshold, baseline) {
+        const time = new Date().toLocaleString('id-ID');
+        const typeLabels = {
+            cpu: 'CPU',
+            ram: 'RAM',
+            disk: 'Disk',
+        };
+        const label = typeLabels[type] || type.toUpperCase();
+
+        let message = `🚨 *ALERT: ${label} Tinggi*\n`;
+        message += '━━━━━━━━━━━━━━━━━━\n\n';
+
+        message += '📊 *Metrics*\n';
+        message += `   Saat ini: ${currentValue.toFixed(1)}%\n`;
+        message += `   Threshold: ${threshold}%\n`;
+
+        if (baseline) {
+            const baselineKey = type;
+            const baselineData = baseline[baselineKey];
+            if (baselineData && baselineData.average > 0) {
+                const spikeFactor = (currentValue / baselineData.average).toFixed(1);
+                message += `   Baseline (avg): ${baselineData.average.toFixed(1)}%\n`;
+                message += `   Spike factor: ${spikeFactor}x\n`;
+            }
+        }
+
+        message += '\n🔍 *Analisis*\n';
+        message += this.getAnalysisText(type, currentValue, baseline);
+
+        message += '\n💡 *Rekomendasi*\n';
+        const suggestions = this.getSuggestions(type);
+        suggestions.forEach((s, i) => {
+            message += `   ${i + 1}. ${s}\n`;
+        });
+
+        message += `\n⏰ ${time}`;
+
+        return { type, message };
+    }
+
+    getAnalysisText(type, current, baseline) {
+        const baselineAvg = baseline?.[type]?.average;
+
+        switch (type) {
+            case 'cpu':
+                if (baselineAvg && current > baselineAvg * 2) {
+                    return '   CPU jauh di atas baseline normal.\n   Kemungkinan ada proses yang consume resource berlebih.\n';
+                }
+                return '   CPU melebihi threshold.\n   Periksa proses yang berjalan.\n';
+
+            case 'ram':
+                if (current > 95) {
+                    return '   RAM hampir penuh! Server berisiko OOM.\n   Segera ambil tindakan.\n';
+                }
+                return '   Penggunaan RAM tinggi.\n   Periksa proses dengan memory usage tertinggi.\n';
+
+            case 'disk':
+                if (current > 95) {
+                    return '   Disk hampir penuh! Risiko crash tinggi.\n   Segera bersihkan file yang tidak diperlukan.\n';
+                }
+                return '   Penggunaan disk melebihi threshold.\n   Periksa file log dan temporary yang bisa dihapus.\n';
+
+            default:
+                return '';
+        }
+    }
+
+    getSuggestions(type) {
+        switch (type) {
+            case 'cpu':
+                return [
+                    'Cek top process → /top',
+                    'Kill process → /kill <PID>',
+                    'Restart service terkait → /restart <service>',
+                ];
+            case 'ram':
+                return [
+                    'Cek memory usage → /free',
+                    'Cek top process → /top',
+                    'Restart service yang bocor memori',
+                ];
+            case 'disk':
+                return [
+                    'Cek disk usage → /df',
+                    'Cleanup log files',
+                    'Hapus file temporary',
+                ];
+            default:
+                return ['Hubungi admin'];
+        }
+    }
+
+    buildApacheAlert(apacheStatus) {
+        const time = new Date().toLocaleString('id-ID');
+        let message = '🚨 *ALERT: Apache DOWN*\n';
+        message += '━━━━━━━━━━━━━━━━━━\n\n';
+        message += `📊 Status: ${apacheStatus.active}\n\n`;
+        message += '💡 *Rekomendasi*\n';
+        message += '   1. Restart Apache → /restart apache2\n';
+        message += '   2. Cek error log → /weblogs\n';
+        message += '   3. Cek config → (configtest)\n';
+        message += `\n⏰ ${time}`;
+        return message;
     }
 
     isCoolingDown(type, config) {
@@ -154,8 +251,7 @@ class AlertScheduler {
         if (!this.sock) return;
 
         try {
-            const text = `*ALERT SERVER*\n\n` + alert.message + `\n\nServer: wabot-server`;
-            await this.sock.sendMessage(groupId, { text });
+            await this.sock.sendMessage(groupId, { text: alert.message });
 
             this.stats.totalAlerts++;
             this.stats.lastAlert = new Date().toLocaleString('id-ID');

@@ -27,7 +27,7 @@ module.exports = {
             description: 'Daftar user yang terdaftar',
             usage: 'listusers',
             module: 'auth',
-            permission: 'superadmin',
+            permission: 'admin',
             handler: handleListUsers,
         },
     ],
