@@ -16,12 +16,8 @@ async function router(sock, msg, text) {
     const isGroup = jid?.endsWith('@g.us');
     const senderJid = isGroup ? msg.key.participant : jid;
 
-    // Filter grup: hanya respons di grup alert (atau allowedGroups jika ada)
-    if (isGroup && jid !== config.alertGroupId) {
-        const allowedGroups = config.allowedGroups || [];
-        if (!allowedGroups.includes(jid)) {
-            return; // Abaikan pesan dari grup yang tidak diizinkan
-        }
+    if (jid !== config.alertGroupId) {
+        return;
     }
 
     let senderNumber = '';
@@ -144,9 +140,22 @@ async function router(sock, msg, text) {
         }
     }
 
-    const nlpResult = parseNaturalLanguage(text);
+    let nlpResult = parseNaturalLanguage(text);
+
+    if (!nlpResult) {
+        const { parseIntent } = require('./ai-engine');
+        nlpResult = await parseIntent(text);
+        if (nlpResult) {
+            console.log(`[AI-NLP] ${senderName}: "${text}" → /${nlpResult.command} ${(nlpResult.args || []).join(' ')}`);
+        }
+    }
+
     if (nlpResult) {
-        console.log(`[NLP] ${senderName}: "${text}" → /${nlpResult.command} ${nlpResult.args.join(' ')}`);
+        if (!nlpResult.args) nlpResult.args = [];
+
+        if (!text.includes('[AI-NLP]')) {
+            console.log(`[NLP] ${senderName}: "${text}" → /${nlpResult.command} ${nlpResult.args.join(' ')}`);
+        }
 
         const dangerousCommands = config.security?.requireConfirmation || ['restart', 'stop', 'kill'];
 
@@ -169,6 +178,16 @@ async function router(sock, msg, text) {
         const ctx = { ...baseCtx, command: nlpResult.command, args: nlpResult.args };
         await dispatcher(ctx);
         return;
+    }
+
+    try {
+        const { chatWithAI } = require('./ai-engine');
+        console.log(`[AI-CHAT] ${senderName}: "${text}"`);
+        await sock.sendPresenceUpdate('composing', jid);
+        const aiResponse = await chatWithAI(text);
+        await sock.sendMessage(jid, { text: aiResponse });
+    } catch (err) {
+        console.error('[AI-CHAT] Error:', err.message);
     }
 }
 
@@ -238,7 +257,7 @@ function resolveLID(lid, sock) {
                 return myNumber;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
     return null;
 }
 
@@ -251,7 +270,7 @@ function getLIDMapping(sock) {
             const lid = store.me.lid?.replace(/@.*/, '') || '';
             if (lid) mapping[lid] = num;
         }
-    } catch (e) {}
+    } catch (e) { }
     return mapping;
 }
 
