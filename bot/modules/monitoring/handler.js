@@ -1,4 +1,7 @@
 const { getAPIClient } = require('../../core/api-client');
+const { generateStatusChart } = require('../../core/chart-generator');
+const fs = require('fs');
+const path = require('path');
 
 function formatBytes(bytes) {
     if (bytes >= 1024 * 1024 * 1024) {
@@ -20,6 +23,58 @@ function getStatusEmoji(percent) {
     return '🟢';
 }
 
+function formatStatusText(s, serverName) {
+    const srvLabel = serverName ? ` (${serverName})` : '';
+
+    let text = `🖥️ *STATUS SERVER${srvLabel}*\n`;
+    text += '━━━━━━━━━━━━━━━━━━\n\n';
+
+    text += `${getStatusEmoji(s.cpu)} *CPU*\n`;
+    text += `   Usage: ${s.cpu.toFixed(1)}%\n`;
+    if (s.temperatures.cpu > 0) text += `   Temp: ${s.temperatures.cpu.toFixed(1)}°C\n`;
+    text += `   [${getBar(s.cpu)}]\n\n`;
+
+    text += `${getStatusEmoji(s.ram.usedPercent)} *RAM*\n`;
+    text += `   ${formatBytes(s.ram.used)} / ${formatBytes(s.ram.total)}\n`;
+    text += `   Free: ${formatBytes(s.ram.free)}\n`;
+    text += `   Usage: ${s.ram.usedPercent.toFixed(1)}%\n`;
+    text += `   [${getBar(s.ram.usedPercent)}]\n\n`;
+
+    if (s.swap.total > 0) {
+        text += `${getStatusEmoji(s.swap.usedPercent)} *SWAP*\n`;
+        text += `   ${formatBytes(s.swap.used)} / ${formatBytes(s.swap.total)}\n`;
+        text += `   Usage: ${s.swap.usedPercent.toFixed(1)}%\n`;
+        text += `   [${getBar(s.swap.usedPercent)}]\n\n`;
+    }
+
+    if (s.gpu && s.gpu.name !== 'No GPU Detected') {
+        text += `🎮 *GPU* (${s.gpu.name})\n`;
+        text += `   Busy: ${s.gpu.busyPercent.toFixed(1)}%\n`;
+        if (s.gpu.vramTotal > 0) {
+            text += `   VRAM: ${formatBytes(s.gpu.vramUsed)} / ${formatBytes(s.gpu.vramTotal)}\n`;
+            text += `   [${getBar(s.gpu.vramPercent)}]\n`;
+        }
+        if (s.temperatures.gpu > 0) text += `   Temp: ${s.temperatures.gpu.toFixed(1)}°C\n`;
+        text += '\n';
+    }
+
+    text += `${getStatusEmoji(s.disk.usedPercent)} *DISK*\n`;
+    text += `   ${formatBytes(s.disk.used)} / ${formatBytes(s.disk.total)}\n`;
+    text += `   Free: ${formatBytes(s.disk.free)}\n`;
+    text += `   Usage: ${s.disk.usedPercent.toFixed(1)}%\n`;
+    if (s.temperatures.disk > 0) text += `   Temp: ${s.temperatures.disk.toFixed(1)}°C\n`;
+    text += `   [${getBar(s.disk.usedPercent)}]\n\n`;
+
+    text += `⏱️ *Uptime*: ${s.uptime}\n\n`;
+
+    text += `🗄️ *DATABASE*\n`;
+    text += `   MySQL: ${s.database.mysql ? '🟢' : '🔴'}\n`;
+    text += `   PostgreSQL: ${s.database.postgresql ? '🟢' : '🔴'}\n`;
+    text += `   Redis: ${s.database.redis ? '🟢' : '🔴'}`;
+
+    return text;
+}
+
 async function handleStatus(ctx) {
     const { sock, jid, args } = ctx;
 
@@ -36,45 +91,7 @@ async function handleStatus(ctx) {
         }
 
         const s = data.data;
-        const srvLabel = serverName ? ` (${serverName})` : '';
-
-        let text = `🖥️ *STATUS SERVER${srvLabel}*\n`;
-        text += '━━━━━━━━━━━━━━━━━━\n\n';
-
-        text += `${getStatusEmoji(s.cpu)} *CPU*\n`;
-        text += `   Usage: ${s.cpu.toFixed(1)}%\n`;
-        text += `   [${getBar(s.cpu)}]\n\n`;
-
-        text += `${getStatusEmoji(s.ram.usedPercent)} *RAM*\n`;
-        text += `   ${formatBytes(s.ram.used)} / ${formatBytes(s.ram.total)}\n`;
-        text += `   Free: ${formatBytes(s.ram.free)}\n`;
-        text += `   Usage: ${s.ram.usedPercent.toFixed(1)}%\n`;
-        text += `   [${getBar(s.ram.usedPercent)}]\n\n`;
-
-        if (s.swap.total > 0) {
-            text += `${getStatusEmoji(s.swap.usedPercent)} *SWAP*\n`;
-            text += `   ${formatBytes(s.swap.used)} / ${formatBytes(s.swap.total)}\n`;
-            text += `   Usage: ${s.swap.usedPercent.toFixed(1)}%\n`;
-            text += `   [${getBar(s.swap.usedPercent)}]\n\n`;
-        }
-
-        if (s.gpu && s.gpu.name !== 'No GPU Detected') {
-            text += `🎮 *GPU* (${s.gpu.name})\n`;
-            text += `   Busy: ${s.gpu.busyPercent.toFixed(1)}%\n`;
-            if (s.gpu.vramTotal > 0) {
-                text += `   VRAM: ${formatBytes(s.gpu.vramUsed)} / ${formatBytes(s.gpu.vramTotal)}\n`;
-                text += `   [${getBar(s.gpu.vramPercent)}]\n`;
-            }
-            text += '\n';
-        }
-
-        text += `${getStatusEmoji(s.disk.usedPercent)} *DISK*\n`;
-        text += `   ${formatBytes(s.disk.used)} / ${formatBytes(s.disk.total)}\n`;
-        text += `   Free: ${formatBytes(s.disk.free)}\n`;
-        text += `   Usage: ${s.disk.usedPercent.toFixed(1)}%\n`;
-        text += `   [${getBar(s.disk.usedPercent)}]\n\n`;
-
-        text += `⏱️ *Uptime*: ${s.uptime}`;
+        let text = formatStatusText(s, serverName);
 
         try {
             const anomalyRes = await api.get(serverName, '/api/monitoring/anomalies');
@@ -284,4 +301,48 @@ async function handleTrends(ctx) {
     }
 }
 
-module.exports = { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends };
+async function handleGraph(ctx) {
+    const { sock, jid, args } = ctx;
+    const tempDir = path.resolve(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    const outputPath = path.join(tempDir, `status_${Date.now()}.png`);
+
+    try {
+        const api = getAPIClient();
+        const { server } = api.parseServerFromArgs(args);
+        const serverName = server || ctx.selectedServer;
+
+        await sock.sendPresenceUpdate('composing', jid);
+
+        const { data } = await api.get(serverName, '/api/monitoring/history');
+
+        if (!data.success || !data.data) {
+            await sock.sendMessage(jid, { text: '❌ Gagal mengambil riwayat data dari server.' });
+            return;
+        }
+
+        const history = data.data;
+        if (!history.cpu || history.cpu.length < 2) {
+            await sock.sendMessage(jid, { text: '⚠️ Data riwayat belum cukup untuk membuat grafik. Mohon tunggu beberapa menit.' });
+            return;
+        }
+
+        await generateStatusChart(history, outputPath);
+
+        await sock.sendMessage(jid, {
+            image: fs.readFileSync(outputPath),
+            caption: ''
+        });
+
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+    } catch (err) {
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        await sock.sendMessage(jid, {
+            text: `❌ Gagal generate grafik:\n${err.message}`,
+        });
+    }
+}
+
+module.exports = { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph };

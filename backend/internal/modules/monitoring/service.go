@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -58,6 +59,8 @@ func GetSystemStatus() (*model.SystemStatus, error) {
 	}
 
 	gpuInfo := detectGPU()
+	temps := getTemperatures()
+	dbStatus := GetDBStatus()
 
 	return &model.SystemStatus{
 		CPU: cpuUsage,
@@ -79,9 +82,59 @@ func GetSystemStatus() (*model.SystemStatus, error) {
 			Free:        diskStat.Free,
 			UsedPercent: diskStat.UsedPercent,
 		},
-		GPU:    gpuInfo,
-		Uptime: uptimeStr,
+		GPU:          gpuInfo,
+		Temperatures: temps,
+		Uptime:       uptimeStr,
+		Database:     dbStatus,
 	}, nil
+}
+
+func getTemperatures() model.TemperatureInfo {
+	info := model.TemperatureInfo{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sensors", "-j")
+	output, err := cmd.Output()
+	if err != nil {
+		return info
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(output, &data); err != nil {
+		return info
+	}
+
+	for key, val := range data {
+		device := val.(map[string]interface{})
+		
+		if strings.Contains(key, "k10temp") || strings.Contains(key, "coretemp") {
+			if tctl, ok := device["Tctl"].(map[string]interface{}); ok {
+				info.CPU = tctl["temp1_input"].(float64)
+			} else if package_id, ok := device["Package id 0"].(map[string]interface{}); ok {
+				info.CPU = package_id["temp1_input"].(float64)
+			}
+		}
+
+		if strings.Contains(key, "amdgpu") || strings.Contains(key, "nvidia") || strings.Contains(key, "nouveau") {
+			if edge, ok := device["edge"].(map[string]interface{}); ok {
+				info.GPU = edge["temp1_input"].(float64)
+			} else if junction, ok := device["junction"].(map[string]interface{}); ok {
+				if info.GPU == 0 {
+					info.GPU = junction["temp2_input"].(float64)
+				}
+			}
+		}
+
+		if strings.Contains(key, "nvme") {
+			if composite, ok := device["Composite"].(map[string]interface{}); ok {
+				info.Disk = composite["temp1_input"].(float64)
+			}
+		}
+	}
+
+	return info
 }
 
 func detectGPU() model.GPUInfo {

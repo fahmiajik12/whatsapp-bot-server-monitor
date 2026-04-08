@@ -36,6 +36,12 @@ func HandleTrends(w http.ResponseWriter, r *http.Request) {
 	model.SendSuccess(w, trends)
 }
 
+func HandleHistory(w http.ResponseWriter, r *http.Request) {
+	engine := GetBaselineEngine()
+	history := engine.GetRawSamples()
+	model.SendSuccess(w, history)
+}
+
 func HandleBaselineReset(w http.ResponseWriter, r *http.Request) {
 	engine := GetBaselineEngine()
 	engine.Reset()

@@ -2,6 +2,7 @@ const http = require('http');
 const { analyzeSystem, chatWithAI, getAIStatus, getActiveModel, setActiveModel, listModels, invalidateAICache } = require('../../core/ai-engine');
 const { getAPIClient } = require('../../core/api-client');
 const cache = require('../../core/cache-service');
+const { getSessionManager } = require('../../core/session-manager');
 
 async function buildContextData(serverName) {
     const api = getAPIClient();
@@ -58,7 +59,14 @@ async function handleAnalyze(ctx) {
         } catch (e) { }
     }
 
-    const aiResponse = await analyzeSystem(`Tolong analisa mengenai status ${target} saat ini.`, contextData);
+    const sessions = getSessionManager();
+    const history = sessions.getAiHistory(ctx.senderNumber);
+
+    const aiResponse = await analyzeSystem(`Tolong analisa mengenai status ${target} saat ini.`, contextData, { history });
+    
+    sessions.addAiHistory(ctx.senderNumber, 'user', `Analyze ${target}`);
+    sessions.addAiHistory(ctx.senderNumber, 'assistant', aiResponse);
+
     await sock.sendMessage(jid, { text: aiResponse });
 }
 
@@ -97,7 +105,13 @@ async function handleFix(ctx) {
     await sock.sendPresenceUpdate('composing', jid);
 
     const contextData = await buildContextData(serverName);
-    const aiResponse = await analyzeSystem(`Bagaimana CARA FIX atau MEMPERBAIKI masalah ini: "${issue}"`, contextData);
+    const sessions = getSessionManager();
+    const history = sessions.getAiHistory(ctx.senderNumber);
+
+    const aiResponse = await analyzeSystem(`Bagaimana CARA FIX atau MEMPERBAIKI masalah ini: "${issue}"`, contextData, { history });
+
+    sessions.addAiHistory(ctx.senderNumber, 'user', `Fix ${issue}`);
+    sessions.addAiHistory(ctx.senderNumber, 'assistant', aiResponse);
 
     await sock.sendMessage(jid, { text: aiResponse });
 }
@@ -109,7 +123,13 @@ async function handleChat(ctx) {
 
     await sock.sendPresenceUpdate('composing', jid);
 
-    const aiResponse = await chatWithAI(text);
+    const sessions = getSessionManager();
+    const history = sessions.getAiHistory(ctx.senderNumber);
+
+    const aiResponse = await chatWithAI(text, history);
+
+    sessions.addAiHistory(ctx.senderNumber, 'user', text);
+    sessions.addAiHistory(ctx.senderNumber, 'assistant', aiResponse);
 
     await sock.sendMessage(jid, { text: aiResponse });
 }

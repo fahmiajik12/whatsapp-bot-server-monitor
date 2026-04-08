@@ -184,7 +184,13 @@ async function router(sock, msg, text) {
         const { chatWithAI } = require('./ai-engine');
         console.log(`[AI-CHAT] ${senderName}: "${text}"`);
         await sock.sendPresenceUpdate('composing', jid);
-        const aiResponse = await chatWithAI(text);
+        
+        const history = sessions.getAiHistory(senderNumber);
+        const aiResponse = await chatWithAI(text, history);
+        
+        sessions.addAiHistory(senderNumber, 'user', text);
+        sessions.addAiHistory(senderNumber, 'assistant', aiResponse);
+        
         await sock.sendMessage(jid, { text: aiResponse });
     } catch (err) {
         console.error('[AI-CHAT] Error:', err.message);

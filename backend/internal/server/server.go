@@ -40,6 +40,7 @@ func NewRouter() *chi.Mux {
 				r.Get("/baseline", monitoring.HandleBaseline)
 				r.Get("/anomalies", monitoring.HandleAnomalies)
 				r.Get("/trends", monitoring.HandleTrends)
+				r.Get("/history", monitoring.HandleHistory)
 				r.Post("/baseline/reset", monitoring.HandleBaselineReset)
 			})
 

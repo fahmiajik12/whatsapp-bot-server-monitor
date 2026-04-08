@@ -120,6 +120,16 @@ func (b *BaselineEngine) GetBaseline() model.Baseline {
 	}
 }
 
+func (b *BaselineEngine) GetRawSamples() baselineData {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return baselineData{
+		CPU:  b.cpuSamples,
+		RAM:  b.ramSamples,
+		Disk: b.diskSamples,
+	}
+}
+
 func (b *BaselineEngine) DetectAnomalies(current *model.SystemStatus, spikeMultiplier float64) []model.Anomaly {
 	b.mu.RLock()
 	defer b.mu.RUnlock()

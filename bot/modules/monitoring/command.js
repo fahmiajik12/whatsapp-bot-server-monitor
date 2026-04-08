@@ -2,7 +2,7 @@
  * Monitoring Module — Diperluas dengan anomaly, baseline, trends
  */
 
-const { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends } = require('./handler');
+const { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph } = require('./handler');
 
 module.exports = {
     name: 'monitoring',
@@ -51,6 +51,15 @@ module.exports = {
             module: 'monitoring',
             permission: 'user',
             handler: handleTrends,
+        },
+        {
+            name: 'graph',
+            aliases: ['grafik', 'chart'],
+            description: 'Lihat grafik tren resource',
+            usage: 'graph [server]',
+            module: 'monitoring',
+            permission: 'user',
+            handler: handleGraph,
         },
     ],
 };

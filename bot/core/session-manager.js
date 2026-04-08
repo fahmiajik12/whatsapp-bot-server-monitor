@@ -23,6 +23,7 @@ class SessionManager {
             wizardState: null,
             lastActivity: Date.now(),
             data: {},
+            aiHistory: [], 
         };
         this.sessions.set(senderNumber, session);
         return session;
@@ -96,6 +97,27 @@ class SessionManager {
 
     clear(senderNumber) {
         this.sessions.delete(senderNumber);
+    }
+
+    addAiHistory(senderNumber, role, content) {
+        const session = this.get(senderNumber);
+        session.aiHistory.push({ role, content, timestamp: Date.now() });
+        
+        if (session.aiHistory.length > 10) {
+            session.aiHistory = session.aiHistory.slice(-10);
+        }
+        return session;
+    }
+
+    getAiHistory(senderNumber) {
+        const session = this.get(senderNumber);
+        return session.aiHistory || [];
+    }
+
+    clearAiHistory(senderNumber) {
+        const session = this.get(senderNumber);
+        session.aiHistory = [];
+        return session;
     }
 
     cleanup() {

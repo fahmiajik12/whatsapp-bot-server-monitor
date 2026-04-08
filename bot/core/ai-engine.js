@@ -133,13 +133,20 @@ Aturan:
 - Berikan actionable steps yang bisa langsung dijalankan.`;
 }
 
-async function analyzeSystem(userPrompt, contextData) {
+async function analyzeSystem(userPrompt, contextData, options = {}) {
     const contextStr = JSON.stringify(contextData, null, 2);
+    const history = options?.history || [];
+
+    let historyStr = "";
+    if (history.length > 0) {
+        historyStr = "\n\nRiwayat percakapan sebelumnya:\n" + 
+            history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join("\n");
+    }
 
     const prompt = `${getDevOpsPersona()}
 
 Data Server saat ini:
-${contextStr}
+${contextStr}${historyStr}
 
 Pertanyaan: "${userPrompt}"
 
@@ -157,10 +164,16 @@ Berikan analisa singkat dan actionable steps!`;
     }
 }
 
-async function chatWithAI(userPrompt) {
-    const prompt = `${getPersona()}
+async function chatWithAI(userPrompt, history = []) {
+    let historyStr = "";
+    if (history.length > 0) {
+        historyStr = "\n\nRiwayat percakapan sebelumnya:\n" + 
+            history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join("\n");
+    }
 
-Pesan dari pengguna: "${userPrompt}"
+    const prompt = `${getPersona()}${historyStr}
+
+Pesan terbaru dari pengguna: "${userPrompt}"
 
 Jawab dengan natural:`;
 

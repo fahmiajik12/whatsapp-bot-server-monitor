@@ -21,13 +21,13 @@ graph TB
     end
 
     subgraph BE["Go Backend (REST API)"]
-        MON["Smart Monitoring<br/>Baseline · Anomaly · Trends"]
+        MON["Smart Monitoring<br/>Baseline · Anomaly · Trends<br/>Temperatures · DB Status"]
         AUTO["Auto-Healing"]
         SEC["Security<br/>Rate Limiter · Audit Log"]
     end
 
     subgraph SRV["Linux Server"]
-        SYS["systemd · Docker · PM2"]
+        SYS["systemd · Docker · PM2<br/>lm-sensors · Databases"]
     end
 
     subgraph LLM["Ollama (Local)"]
@@ -50,13 +50,11 @@ graph TB
 
 ## Fitur Utama
 
-### 🧠 AI Assistant (Ollama — 100% Lokal)
-- **Chatbot umum** — Jawab pertanyaan apapun seperti ChatGPT, ngobrol santai, tanya coding, sains, dll
-- **DevOps AI** — Analisis server, diagnosa masalah, rekomendasi solusi berdasarkan data real-time
-- **Intent Parsing** — Paham bahasa natural ("kenapa apache mati" → otomatis ke command yang tepat)
-- **Multi-model** — Support semua model Ollama (Qwen, Mistral, Gemma, Llama, Phi, dll)
-- **Model Manager** — Download, ganti, dan hapus model AI langsung dari WhatsApp (`/aimodel`)
-- **Zero Cost & Zero Limit** — Berjalan 100% lokal, tidak perlu API key cloud, tanpa batas request
+- **AI Assistant Lokal** — Ngobrol santai, tanya coding, atau diskusi teknis layaknya ChatGPT.
+- **Context Memory** — Mengingat 10 pesan terakhir untuk percakapan yang nyambung dan berkelanjutan.
+- **DevOps AI** — Analisis metrik server secara cerdas dan berikan rekomendasi solusi real-time.
+- **Intent Parsing** — Paham perintah bahasa manusia (NLP) untuk eksekusi perintah yang tepat.
+- **Zero Cost & Limit** — Berjalan 100% lokal di server Anda tanpa biaya API cloud pihak ketiga.
 
 ### ⚡ Redis Cache Layer
 - **AI Response Cache** — Cache response AI untuk menghindari request berulang ke Ollama
@@ -72,11 +70,12 @@ graph TB
 - Konfirmasi untuk aksi berbahaya (restart, stop, kill)
 - Tetap support command manual (`/status`, `/restart`)
 
-### 📊 Smart Monitoring Engine
-- **Baseline** — Moving average untuk deteksi pola normal
-- **Anomaly Detection** — Deteksi spike otomatis berdasarkan deviasi dari baseline
-- **Trend Analysis** — Prediksi penggunaan resource ke depan
-- **Smart Alert** — Alert cerdas dengan analisis konteks, bukan hanya threshold
+- **Visual Monitoring (PNG)** — Generate grafik tren resource 24 jam dengan **On-Chart Status Box** (ringkasan statistik langsung di dalam gambar).
+- **Hardware Temperatures** — Monitoring suhu CPU, GPU, dan Disk secara real-time via `lm-sensors`.
+- **Deep Database Monitoring** — Cek status & port untuk MySQL, PostgreSQL, dan Redis dari backend.
+- **Anomaly Detection** — Deteksi lonjakan resource otomatis berdasarkan deviasi dari baseline 24 jam.
+- **Trend Analysis** — Prediksi penggunaan resource dan estimasi sisa ruang penyimpanan.
+- **Smart Alert** — Alert cerdas otomatis ke grup WhatsApp dengan analisis konteks AI.
 
 ### 🤖 Auto-Healing (Automation)
 - Aturan otomatis: jika service down → restart
@@ -295,7 +294,8 @@ Navigasi menu:
 
 | Command | Permission | Deskripsi |
 |---------|------------|-----------|
-| `/status` | user | CPU, RAM, Swap, GPU/VRAM, Disk, Uptime |
+| `/status` | user | Status lengkap (CPU, RAM, Disk, Temp, DB) |
+| `/graph`  | user | Grafik tren 24 jam dengan visual status box (PNG) |
 | `/services` | user | Status semua service |
 | `/anomaly` | user | Anomali yang terdeteksi |
 | `/baseline` | admin | Data baseline monitoring |
@@ -673,6 +673,7 @@ pm2 save
 - **PM2** (recommended untuk production)
 - **Ollama** (untuk fitur AI)
 - **Redis** (untuk caching AI response)
+- **lm-sensors** (untuk fitur monitoring suhu)
 
 ## Setup AI (Ollama)
 

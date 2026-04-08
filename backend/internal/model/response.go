@@ -12,12 +12,27 @@ type APIResponse struct {
 }
 
 type SystemStatus struct {
-	CPU    float64  `json:"cpu"`
-	RAM    RAMInfo  `json:"ram"`
-	Swap   SwapInfo `json:"swap"`
-	Disk   DiskInfo `json:"disk"`
-	GPU    GPUInfo  `json:"gpu"`
-	Uptime string   `json:"uptime"`
+	CPU          float64         `json:"cpu"`
+	RAM          RAMInfo         `json:"ram"`
+	Swap         SwapInfo        `json:"swap"`
+	Disk         DiskInfo        `json:"disk"`
+	GPU          GPUInfo         `json:"gpu"`
+	Temperatures TemperatureInfo `json:"temperatures"`
+	Uptime       string          `json:"uptime"`
+	Database     DBStatus        `json:"database"`
+}
+
+type TemperatureInfo struct {
+	CPU  float64 `json:"cpu"`
+	GPU  float64 `json:"gpu"`
+	RAM  float64 `json:"ram,omitempty"`
+	Disk float64 `json:"disk,omitempty"`
+}
+
+type DBStatus struct {
+	MySQL      bool `json:"mysql"`
+	PostgreSQL bool `json:"postgresql"`
+	Redis      bool `json:"redis"`
 }
 
 type RAMInfo struct {
