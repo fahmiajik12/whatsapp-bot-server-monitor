@@ -25,6 +25,8 @@ const MENUS = {
             { key: '3', emoji: '⚠️', label: 'Laporan Anomali', action: 'cmd:anomaly' },
             { key: '4', emoji: '📈', label: 'Tren Resource', action: 'cmd:trends' },
             { key: '5', emoji: '📊', label: 'Baseline Data', action: 'cmd:baseline' },
+            { key: '6', emoji: '🌐', label: 'Network Traffic', action: 'cmd:network' },
+            { key: '7', emoji: '⏱️', label: 'Live Status', action: 'cmd:live' },
         ],
     },
 

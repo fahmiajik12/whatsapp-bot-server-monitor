@@ -2,7 +2,7 @@
  * Monitoring Module — Diperluas dengan anomaly, baseline, trends
  */
 
-const { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph } = require('./handler');
+const { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph, handleNetwork, handleLiveStatus, handleStopLive } = require('./handler');
 
 module.exports = {
     name: 'monitoring',
@@ -60,6 +60,33 @@ module.exports = {
             module: 'monitoring',
             permission: 'user',
             handler: handleGraph,
+        },
+        {
+            name: 'network',
+            aliases: ['net', 'bandwidth'],
+            description: 'Lihat status trafik jaringan',
+            usage: 'network [server]',
+            module: 'monitoring',
+            permission: 'user',
+            handler: handleNetwork,
+        },
+        {
+            name: 'live',
+            aliases: ['livestatus'],
+            description: 'Lihat live status (Real-time)',
+            usage: 'live [server]',
+            module: 'monitoring',
+            permission: 'user',
+            handler: handleLiveStatus,
+        },
+        {
+            name: 'stoplive',
+            aliases: [],
+            description: 'Hentikan live status',
+            usage: 'stoplive',
+            module: 'monitoring',
+            permission: 'user',
+            handler: handleStopLive,
         },
     ],
 };

@@ -31,7 +31,12 @@ func RunSystemctl(action, service string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "systemctl", action, service)
+	var cmd *exec.Cmd
+	if action == "status" {
+		cmd = exec.CommandContext(ctx, "systemctl", action, service)
+	} else {
+		cmd = exec.CommandContext(ctx, "sudo", "systemctl", action, service)
+	}
 	output, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {

@@ -86,6 +86,7 @@ func GetSystemStatus() (*model.SystemStatus, error) {
 		Temperatures: temps,
 		Uptime:       uptimeStr,
 		Database:     dbStatus,
+		Network:      GetNetworkStats(),
 	}, nil
 }
 
