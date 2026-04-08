@@ -20,6 +20,7 @@ type SystemStatus struct {
 	Temperatures TemperatureInfo `json:"temperatures"`
 	Uptime       string          `json:"uptime"`
 	Database     DBStatus        `json:"database"`
+	Network      []NetworkInterface `json:"network"`
 }
 
 type TemperatureInfo struct {
@@ -63,6 +64,14 @@ type DiskInfo struct {
 	Used        uint64  `json:"used"`
 	Free        uint64  `json:"free"`
 	UsedPercent float64 `json:"usedPercent"`
+}
+
+type NetworkInterface struct {
+	Name    string  `json:"name"`
+	RxBytes uint64  `json:"rxBytes"`
+	TxBytes uint64  `json:"txBytes"`
+	RxSpeed float64 `json:"rxSpeed"`
+	TxSpeed float64 `json:"txSpeed"`
 }
 
 type ServiceStatus struct {

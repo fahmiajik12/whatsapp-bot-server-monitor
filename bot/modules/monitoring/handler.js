@@ -7,7 +7,17 @@ function formatBytes(bytes) {
     if (bytes >= 1024 * 1024 * 1024) {
         return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
     }
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    if (bytes >= 1024 * 1024) {
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    if (bytes >= 1024) {
+        return (bytes / 1024).toFixed(2) + ' KB';
+    }
+    return bytes + ' B';
+}
+
+function formatSpeed(bytesPerSec) {
+    return formatBytes(bytesPerSec) + '/s';
 }
 
 function getBar(percent) {
@@ -64,6 +74,14 @@ function formatStatusText(s, serverName) {
     text += `   Usage: ${s.disk.usedPercent.toFixed(1)}%\n`;
     if (s.temperatures.disk > 0) text += `   Temp: ${s.temperatures.disk.toFixed(1)}°C\n`;
     text += `   [${getBar(s.disk.usedPercent)}]\n\n`;
+
+    if (s.network && s.network.length > 0) {
+        text += `🌐 *NETWORK*\n`;
+        for (const net of s.network) {
+            text += `   [${net.name}] ⬇️ ${formatSpeed(net.rxSpeed)} ⬆️ ${formatSpeed(net.txSpeed)}\n`;
+        }
+        text += `\n`;
+    }
 
     text += `⏱️ *Uptime*: ${s.uptime}\n\n`;
 
@@ -345,4 +363,70 @@ async function handleGraph(ctx) {
     }
 }
 
-module.exports = { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph };
+async function handleNetwork(ctx) {
+    const { sock, jid, args } = ctx;
+
+    try {
+        const api = getAPIClient();
+        const { server } = api.parseServerFromArgs(args);
+        const serverName = server || ctx.selectedServer;
+
+        const { data } = await api.get(serverName, '/api/monitoring/network');
+
+        if (!data.success) {
+            await sock.sendMessage(jid, { text: `❌ Error: ${data.error}` });
+            return;
+        }
+
+        const networkStats = data.data || [];
+        const srvLabel = serverName ? ` (${serverName})` : '';
+
+        let text = `🌐 *NETWORK TRAFFIC${srvLabel}*\n`;
+        text += '━━━━━━━━━━━━━━━━━━\n\n';
+
+        if (networkStats.length === 0) {
+            text += 'Data network interface tidak ditemukan.';
+        } else {
+            for (const net of networkStats) {
+                text += `*Interface: ${net.name}*\n`;
+                text += `⬇️ Download Speed: ${formatSpeed(net.rxSpeed)}\n`;
+                text += `⬆️ Upload Speed: ${formatSpeed(net.txSpeed)}\n`;
+                text += `📥 Total RX: ${formatBytes(net.rxBytes)}\n`;
+                text += `📤 Total TX: ${formatBytes(net.txBytes)}\n\n`;
+            }
+        }
+
+        await sock.sendMessage(jid, { text });
+    } catch (err) {
+        await sock.sendMessage(jid, {
+            text: `❌ Gagal mengambil network stats:\n${err.message}`,
+        });
+    }
+}
+
+async function handleLiveStatus(ctx) {
+    const { sock, jid, args } = ctx;
+    const { getAPIClient } = require('../../core/api-client');
+    const api = getAPIClient();
+    const { server } = api.parseServerFromArgs(args);
+    const serverName = server || ctx.selectedServer;
+
+    const { getLiveStatusManager } = require('./live-status');
+    const liveManager = getLiveStatusManager();
+
+    await liveManager.start(sock, jid, serverName);
+}
+
+async function handleStopLive(ctx) {
+    const { sock, jid } = ctx;
+    const { getLiveStatusManager } = require('./live-status');
+    const liveManager = getLiveStatusManager();
+
+    if (liveManager.stop(jid)) {
+        await sock.sendMessage(jid, { text: '⏹️ *Live Status Dihentikan*' });
+    } else {
+        await sock.sendMessage(jid, { text: '⚠️ Tidak ada live status yang aktif di chat ini.' });
+    }
+}
+
+module.exports = { handleStatus, handleServices, handleAnomaly, handleBaseline, handleTrends, handleGraph, handleNetwork, formatStatusText, handleLiveStatus, handleStopLive };

@@ -21,3 +21,6 @@ plugins/private/
 
 # Backend runtime data
 backend/data/
+
+# System specific configs
+wabot-sudoers

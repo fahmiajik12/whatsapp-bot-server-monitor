@@ -1,4 +1,4 @@
-const { handleAlertOn, handleAlertOff, handleAlertStatus } = require('./handler');
+const { handleAlertOn, handleAlertOff, handleAlertStatus, handleDiagnose } = require('./handler');
 
 module.exports = {
     name: 'alert',
@@ -29,6 +29,15 @@ module.exports = {
             module: 'alert',
             permission: 'admin',
             handler: handleAlertStatus,
+        },
+        {
+            name: 'diagnose',
+            aliases: ['diag'],
+            description: 'Diagnosa mengapa service mati menggunakan AI',
+            usage: 'diagnose <service>',
+            module: 'alert',
+            permission: 'admin',
+            handler: handleDiagnose,
         },
     ],
 };

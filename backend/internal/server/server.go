@@ -42,6 +42,7 @@ func NewRouter() *chi.Mux {
 				r.Get("/trends", monitoring.HandleTrends)
 				r.Get("/history", monitoring.HandleHistory)
 				r.Post("/baseline/reset", monitoring.HandleBaselineReset)
+				r.Get("/network", monitoring.HandleNetworkStats)
 			})
 
 			r.Route("/service/{name}", func(r chi.Router) {

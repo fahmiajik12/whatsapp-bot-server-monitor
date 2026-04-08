@@ -51,4 +51,36 @@ async function handleAlertStatus(ctx) {
     });
 }
 
-module.exports = { handleAlertOn, handleAlertOff, handleAlertStatus };
+async function handleDiagnose(ctx) {
+    const { sock, jid, args } = ctx;
+    const { getAPIClient } = require('../../core/api-client');
+    const api = getAPIClient();
+    
+    const { target, server } = api.parseServerFromArgs(args);
+    const serverName = server || ctx.selectedServer;
+    const serviceName = target;
+
+    if (!serviceName) {
+        await sock.sendMessage(jid, { text: '📝 *Penggunaan:* /diagnose <nama_service>\n\nContoh: /diagnose apache2' });
+        return;
+    }
+
+    try {
+        await sock.sendPresenceUpdate('composing', jid);
+        const { data: statusRes } = await api.get(serverName, `/api/service/${serviceName}`);
+        
+        let statusText = 'unknown';
+        if (statusRes && statusRes.success && statusRes.data) {
+            statusText = statusRes.data.active;
+        }
+
+        const scheduler = getScheduler();
+        const alertMsg = await scheduler.buildServiceDownAlert(serviceName, { active: statusText }, api);
+        
+        await sock.sendMessage(jid, { text: alertMsg.message });
+    } catch (err) {
+        await sock.sendMessage(jid, { text: `❌ Gagal melakukan diagnosa: ${err.message}` });
+    }
+}
+
+module.exports = { handleAlertOn, handleAlertOff, handleAlertStatus, handleDiagnose };

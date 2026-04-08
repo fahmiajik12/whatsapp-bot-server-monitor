@@ -23,3 +23,8 @@ func HandleServices(w http.ResponseWriter, r *http.Request) {
 	}
 	model.SendSuccess(w, services)
 }
+
+func HandleNetworkStats(w http.ResponseWriter, r *http.Request) {
+	stats := GetNetworkStats()
+	model.SendSuccess(w, stats)
+}

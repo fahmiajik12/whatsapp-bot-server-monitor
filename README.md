@@ -76,6 +76,10 @@ graph TB
 - **Anomaly Detection** — Deteksi lonjakan resource otomatis berdasarkan deviasi dari baseline 24 jam.
 - **Trend Analysis** — Prediksi penggunaan resource dan estimasi sisa ruang penyimpanan.
 - **Smart Alert** — Alert cerdas otomatis ke grup WhatsApp dengan analisis konteks AI.
+- **Auto-Diagnose Server Down** — Saat service mati terdeteksi, ambil sisa log & suruh Ollama mendiagnosa dan memberi solusi fix seketika.
+- **Network Traffic Monitoring** — Memantau RX/TX bandwidth jaringan secara per-interface realtime.
+- **Live Status** — Menampilkan ringkasan status yang ter-*refresh* otomatis tiap 5 detik di dalam percakapan WhatsApp tanpa melakukan flood berkat fungsi `editMessage`.
+- **Eksekusi Aman via Sudo** — Auto eksekusi service command menggunakan daemon polkit/sudoers yang mengizinkan bot me-restart service tanpa password root di tangan.
 
 ### 🤖 Auto-Healing (Automation)
 - Aturan otomatis: jika service down → restart
@@ -235,7 +239,29 @@ cd backend
 go build -o wabot-backend ./cmd
 ```
 
-### 4. Jalankan
+### 4. Setup Sudoers (Wajib untuk Service Management)
+
+Karena bot mengeksekusi *start/stop/restart* menggunakan `systemctl`, ia memerlukan akses `sudo` tanpa menanyakan password.
+Buat file bernama `wabot-sudoers` dan isi dengan konfigurasi berikut (sesuaikan `username` dengan user Linux Anda, contoh: `budi santoso`):
+
+```bash
+# Wabot Backend - Izin systemctl tanpa password
+username    ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *
+username    ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop *
+username    ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *
+username    ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload *
+username    ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *
+```
+
+Setelah file dibuat, salin file tersebut ke direktori `/etc/sudoers.d/` dan ubah hak aksesnya:
+
+```bash
+sudo cp wabot-sudoers /etc/sudoers.d/wabot
+sudo chmod 440 /etc/sudoers.d/wabot
+```
+*(Cakupan sudo dipersempit secara eksklusif hanya untuk command `systemctl` sehingga tetap aman).*
+
+### 5. Jalankan
 
 **Manual (development):**
 
@@ -300,6 +326,9 @@ Navigasi menu:
 | `/anomaly` | user | Anomali yang terdeteksi |
 | `/baseline` | admin | Data baseline monitoring |
 | `/trends` | user | Tren & prediksi resource |
+| `/network` | user | Status trafik RX/TX jaringan |
+| `/live` | user | Live status (Real-time auto-update) |
+| `/stoplive` | user | Hentikan live status |
 
 ### ⚙️ Service Management
 
@@ -367,6 +396,7 @@ Navigasi menu:
 | `/alert on` | admin | Aktifkan alert |
 | `/alert off` | admin | Nonaktifkan alert |
 | `/alert status` | admin | Status alert |
+| `/diagnose <service>` | admin | Diagnosa AI log service mati |
 
 ### 🧠 AI Assistant
 

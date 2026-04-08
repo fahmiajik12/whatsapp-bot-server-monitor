@@ -113,10 +113,21 @@ class AlertScheduler {
                 if (apacheRes.data.success) {
                     const apacheStatus = apacheRes.data.data;
                     if (!apacheStatus.active?.includes('running')) {
-                        alerts.push({
-                            type: 'apache',
-                            message: this.buildApacheAlert(apacheStatus),
-                        });
+                        const alert = await this.buildServiceDownAlert('apache2', apacheStatus, api);
+                        alerts.push(alert);
+                    }
+                }
+            } catch (_) {}
+
+            try {
+                const servicesRes = await api.get(null, '/api/monitoring/services');
+                if (servicesRes.data.success) {
+                    for (const svc of servicesRes.data.data) {
+                        if (svc.name === 'apache2') continue; 
+                        if (!svc.active?.includes('running')) {
+                           const alert = await this.buildServiceDownAlert(svc.name, svc, api);
+                           alerts.push(alert);
+                        }
                     }
                 }
             } catch (_) {}
@@ -223,17 +234,42 @@ class AlertScheduler {
         }
     }
 
-    buildApacheAlert(apacheStatus) {
+    async buildServiceDownAlert(serviceName, status, api) {
         const time = new Date().toLocaleString('id-ID');
-        let message = '🚨 *ALERT: Apache DOWN*\n';
+        let message = `🚨 *ALERT: Service ${serviceName.toUpperCase()} DOWN*\n`;
         message += '━━━━━━━━━━━━━━━━━━\n\n';
-        message += `📊 Status: ${apacheStatus.active}\n\n`;
-        message += '💡 *Rekomendasi*\n';
-        message += '   1. Restart Apache → /restart apache2\n';
-        message += '   2. Cek error log → /weblogs\n';
-        message += '   3. Cek config → (configtest)\n';
+        message += `📊 Status: ${status.active}\n`;
+
+        let aiDiagnosis = '';
+        try {
+            const logsRes = await api.get(null, `/api/logs/${serviceName}`, { lines: 50 });
+            let logLines = '';
+            if (logsRes.data.success && logsRes.data.data) {
+                logLines = logsRes.data.data.lines.join('\n');
+            } else if (logsRes.data.error) {
+                logLines = "Gagal mengambil log: " + logsRes.data.error;
+            }
+
+            if (logLines) {
+                const { analyzeSystem } = require('../../core/ai-engine');
+                const prompt = `Service ${serviceName} mati. Berikut 50 baris terakhir lognya:\n\n${logLines}\n\nBerdasarkan log di atas, mengapa service mati? Berikan saran perbaikan (misal jalankan command /stop atau /start atau perbaiki config). Singkat dan jelas.`;
+                aiDiagnosis = await analyzeSystem(prompt, { service: serviceName, status: status.active });
+            }
+        } catch (err) {
+            aiDiagnosis = `Gagal menganalisa log: ${err.message}`;
+        }
+
+        if (aiDiagnosis) {
+            message += '\n🤖 *AI Diagnosis*\n';
+            message += `${aiDiagnosis}\n`;
+        }
+
+        message += '\n💡 *Saran Aksi Manual*\n';
+        message += `   1. Restart → /restart ${serviceName}\n`;
+        message += `   2. Cek Log → /logs ${serviceName}\n`;
         message += `\n⏰ ${time}`;
-        return message;
+        
+        return { type: `service_${serviceName}`, message };
     }
 
     isCoolingDown(type, config) {
