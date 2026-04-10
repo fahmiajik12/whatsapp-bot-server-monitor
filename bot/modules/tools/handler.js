@@ -91,6 +91,7 @@ async function handleToolsList(ctx) {
         '/top -- Top proses (by CPU)',
         '/ports -- Port yang terbuka',
         '/ip -- IP address server',
+        '/reboot-server -- Reboot OS Server',
     ];
 
     await sock.sendMessage(jid, {
@@ -98,8 +99,23 @@ async function handleToolsList(ctx) {
     });
 }
 
+async function handleRebootServer(ctx) {
+    const { sock, jid } = ctx;
+    await sock.sendMessage(jid, { text: '🔄 Mengirim sinyal reboot ke server...\n\nBot akan offline untuk beberapa saat dan menyala kembali jika menggunakan PM2/systemd.' });
+
+    try {
+        await api.post(`/api/tools/reboot`);
+    } catch (err) {
+        if (!err.message.includes('socket hang up') && !err.message.includes('Network Error') && !err.message.includes('ECONNRESET')) {
+             const errMsg = err.response?.data?.error || err.message;
+             await sock.sendMessage(jid, { text: `[!] Gagal: ${errMsg}` });
+        }
+    }
+}
+
+
 module.exports = {
     handlePm2, handleDocker, handleDockerImages, handleDockerStats,
     handleDf, handleFree, handleUptime, handleWho, handleTop,
-    handleSs, handleIp, handleToolsList,
+    handleSs, handleIp, handleToolsList, handleRebootServer
 };

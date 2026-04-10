@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -20,7 +21,21 @@ import (
 	"wabot-backend/internal/model"
 )
 
-var cachedGPUName string
+var (
+	cachedGPUName string
+	cacheMutex    sync.RWMutex
+
+	tempCacheVal  model.TemperatureInfo
+	tempCacheTime time.Time
+
+	serviceCacheVal  = make(map[string]serviceCacheEntry)
+	cacheTTL         = 5 * time.Minute
+)
+
+type serviceCacheEntry struct {
+	status    *model.ServiceStatus
+	timestamp time.Time
+}
 
 func GetSystemStatus() (*model.SystemStatus, error) {
 	cpuPercent, err := cpu.Percent(time.Second, false)
@@ -91,6 +106,14 @@ func GetSystemStatus() (*model.SystemStatus, error) {
 }
 
 func getTemperatures() model.TemperatureInfo {
+	cacheMutex.RLock()
+	if time.Since(tempCacheTime) < cacheTTL {
+		val := tempCacheVal
+		cacheMutex.RUnlock()
+		return val
+	}
+	cacheMutex.RUnlock()
+
 	info := model.TemperatureInfo{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -98,42 +121,43 @@ func getTemperatures() model.TemperatureInfo {
 
 	cmd := exec.CommandContext(ctx, "sensors", "-j")
 	output, err := cmd.Output()
-	if err != nil {
-		return info
-	}
+	if err == nil {
+		var data map[string]interface{}
+		if err := json.Unmarshal(output, &data); err == nil {
+			for key, val := range data {
+				device := val.(map[string]interface{})
+				
+				if strings.Contains(key, "k10temp") || strings.Contains(key, "coretemp") {
+					if tctl, ok := device["Tctl"].(map[string]interface{}); ok {
+						info.CPU = tctl["temp1_input"].(float64)
+					} else if package_id, ok := device["Package id 0"].(map[string]interface{}); ok {
+						info.CPU = package_id["temp1_input"].(float64)
+					}
+				}
 
-	var data map[string]interface{}
-	if err := json.Unmarshal(output, &data); err != nil {
-		return info
-	}
+				if strings.Contains(key, "amdgpu") || strings.Contains(key, "nvidia") || strings.Contains(key, "nouveau") {
+					if edge, ok := device["edge"].(map[string]interface{}); ok {
+						info.GPU = edge["temp1_input"].(float64)
+					} else if junction, ok := device["junction"].(map[string]interface{}); ok {
+						if info.GPU == 0 {
+							info.GPU = junction["temp2_input"].(float64)
+						}
+					}
+				}
 
-	for key, val := range data {
-		device := val.(map[string]interface{})
-		
-		if strings.Contains(key, "k10temp") || strings.Contains(key, "coretemp") {
-			if tctl, ok := device["Tctl"].(map[string]interface{}); ok {
-				info.CPU = tctl["temp1_input"].(float64)
-			} else if package_id, ok := device["Package id 0"].(map[string]interface{}); ok {
-				info.CPU = package_id["temp1_input"].(float64)
-			}
-		}
-
-		if strings.Contains(key, "amdgpu") || strings.Contains(key, "nvidia") || strings.Contains(key, "nouveau") {
-			if edge, ok := device["edge"].(map[string]interface{}); ok {
-				info.GPU = edge["temp1_input"].(float64)
-			} else if junction, ok := device["junction"].(map[string]interface{}); ok {
-				if info.GPU == 0 {
-					info.GPU = junction["temp2_input"].(float64)
+				if strings.Contains(key, "nvme") {
+					if composite, ok := device["Composite"].(map[string]interface{}); ok {
+						info.Disk = composite["temp1_input"].(float64)
+					}
 				}
 			}
 		}
-
-		if strings.Contains(key, "nvme") {
-			if composite, ok := device["Composite"].(map[string]interface{}); ok {
-				info.Disk = composite["temp1_input"].(float64)
-			}
-		}
 	}
+
+	cacheMutex.Lock()
+	tempCacheVal = info
+	tempCacheTime = time.Now()
+	cacheMutex.Unlock()
 
 	return info
 }
@@ -258,6 +282,16 @@ func GetServicesStatus() ([]model.ServiceStatus, error) {
 }
 
 func GetServiceStatus(name string) (*model.ServiceStatus, error) {
+	cacheMutex.RLock()
+	if entry, ok := serviceCacheVal[name]; ok {
+		if time.Since(entry.timestamp) < cacheTTL {
+			val := entry.status
+			cacheMutex.RUnlock()
+			return val, nil
+		}
+	}
+	cacheMutex.RUnlock()
+
 	output, _ := executor.RunSystemctl("status", name)
 
 	status := &model.ServiceStatus{
@@ -284,6 +318,13 @@ func GetServiceStatus(name string) (*model.ServiceStatus, error) {
 	if status.Active == "" {
 		status.Active = "inactive"
 	}
+
+	cacheMutex.Lock()
+	serviceCacheVal[name] = serviceCacheEntry{
+		status:    status,
+		timestamp: time.Now(),
+	}
+	cacheMutex.Unlock()
 
 	return status, nil
 }

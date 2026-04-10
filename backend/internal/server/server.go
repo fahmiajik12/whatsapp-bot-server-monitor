@@ -70,6 +70,7 @@ func NewRouter() *chi.Mux {
 			r.Route("/tools", func(r chi.Router) {
 				r.Get("/list", tools.HandleList)
 				r.Get("/exec/{name}", tools.HandleExec)
+				r.Post("/reboot", tools.HandleReboot)
 			})
 
 			r.Route("/automation", func(r chi.Router) {

@@ -21,6 +21,7 @@ class AlertScheduler {
         };
         this.cooldowns = new Map();
         this.sock = null;
+        this.ignoredServices = ['systemd-fsckd', 'systemd-tmpfiles-setup', 'systemd-tmpfiles-clean', 'apt-daily', 'apt-daily-upgrade'];
     }
 
     start(sock) {
@@ -123,7 +124,9 @@ class AlertScheduler {
                 const servicesRes = await api.get(null, '/api/monitoring/services');
                 if (servicesRes.data.success) {
                     for (const svc of servicesRes.data.data) {
-                        if (svc.name === 'apache2') continue; 
+                        if (svc.name === 'apache2') continue;
+                        if (this.ignoredServices.includes(svc.name)) continue;
+
                         if (!svc.active?.includes('running')) {
                            const alert = await this.buildServiceDownAlert(svc.name, svc, api);
                            alerts.push(alert);

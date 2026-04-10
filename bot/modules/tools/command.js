@@ -1,7 +1,7 @@
 const {
     handlePm2, handleDocker, handleDockerImages, handleDockerStats,
     handleDf, handleFree, handleUptime, handleWho, handleTop,
-    handleSs, handleIp, handleToolsList
+    handleSs, handleIp, handleToolsList, handleRebootServer
 } = require('./handler');
 
 module.exports = {
@@ -114,6 +114,15 @@ module.exports = {
             module: 'tools',
             permission: 'user',
             handler: handleToolsList,
+        },
+        {
+            name: 'reboot-server',
+            aliases: ['reboot'],
+            description: 'Reboot OS Server',
+            usage: 'reboot-server',
+            module: 'tools',
+            permission: 'superadmin',
+            handler: handleRebootServer,
         },
     ],
 };

@@ -17,7 +17,15 @@ const chartJSNodeCanvas = new ChartJSNodeCanvas({
  * @param {String} outputPath Path to save the PNG
  */
 async function generateStatusChart(history, outputPath) {
-    const labels = history.cpu.map((_, i) => ""); 
+    const now = new Date();
+    const labels = history.cpu.map((_, i) => {
+        const time = new Date(now.getTime() - (history.cpu.length - 1 - i) * 60000);
+        if (i % 240 === 0 || i === history.cpu.length - 1) {
+            return time.getHours().toString().padStart(2, '0') + ':00';
+        }
+        return "";
+    });
+
     const lastCPU = history.cpu.length > 0 ? history.cpu[history.cpu.length - 1].toFixed(1) : '-';
     const lastRAM = history.ram.length > 0 ? history.ram[history.ram.length - 1].toFixed(1) : '-';
     const lastDisk = history.disk.length > 0 ? history.disk[history.disk.length - 1].toFixed(1) : '-';
@@ -119,8 +127,14 @@ async function generateStatusChart(history, outputPath) {
                     ticks: { color: '#ffffff' }
                 },
                 x: {
-                    grid: { display: false },
-                    ticks: { display: false }
+                    grid: { display: true, color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { 
+                        display: true, 
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        maxRotation: 0,
+                        autoSkip: false,
+                        font: { size: 10 }
+                    }
                 }
             },
             plugins: {
